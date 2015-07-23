@@ -34,19 +34,19 @@
     };
   })(XMLHttpRequest.prototype.open);
 
-  function updateTrs() {
+  function updateTable() {
     var trs = jQuery('tbody#transaction-list-body tr');
     trs.each(function(_, tr) {
       var $td = jQuery(tr).find('td.cat');
       var transId = jQuery(tr).attr('id').split('-')[1];
       if($td.find('.gm-tags').length === 0) {
-        // TODO deterministically choose different background color for each tag?
-        $td.append('<span class="gm-tags" style="background: pink; font-size: 9px; margin-left: 3px;"></span>');
+        // TODO separate span for each tag
+        $td.append('<span class="gm-tags" style="background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px;"></span>');
       }
       $td.find('.gm-tags').text(transIdToTags[transId]);
     });
   }
 
   // TODO this is disgusting; use a MutationObserver for the transactions table
-  setInterval(updateTrs, 2000);
+  setInterval(updateTable, 2000);
 })();
