@@ -10,6 +10,8 @@
 //
 
 (function() {
+  // tweak tag style: (default colors were chosen for consistency with Mint's theme)
+  var TAG_STYLE = 'background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px';
 
   var transIdToTags = {};
   var tagIdToName = {};
@@ -60,21 +62,19 @@
 
     transIds.forEach(function(tId) {
       transIdToTags[tId] = tagNames.join(', ') || undefined;
-      var $row = jQuery('#transaction-' + tId);
-      if($row.length > 0) {
-        updateRow(jQuery('#transaction-' + tId));
+      if(jQuery('#transaction-' + tId).length > 0) {
+        updateRow('transaction-' + tId);
       }
     });
   }
 
   // update a transaction row using cached tag data
-  function updateRow(tr) {
-    var $td = jQuery(tr).find('td.cat');
-    // tr will have id like 'transaction-12345'
-    var transId = jQuery(tr).attr('id').split('-')[1];
+  function updateRow(rowId) {
+    var $td = jQuery('#' + rowId).find('td.cat');
+    var transId = rowId.split('-')[1];
     if(transIdToTags[transId]) {
       if($td.find('.gm-tags').length === 0) {
-        $td.append('<span class="gm-tags" style="background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px;"></span>');
+        $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
       $td.find('.gm-tags').text(transIdToTags[transId]);
     } else {
@@ -106,25 +106,51 @@
     };
   })(XMLHttpRequest.prototype.open);
 
-  // observe changes to the content of the transactions table
-  (function observeDOM() {
-    // ...only after the transactions table has appeared
+  function observeDOM(target) {
+    var observer;
+
+    function handleMutations(mutations) {
+      var rowIdsToUpdate = {};
+      mutations.forEach(function(mutation) {
+        var $target = jQuery(mutation.target);
+        var $tr = jQuery(mutation.target).parents('tr').first();
+        if(!$target.hasClass('gm-tags') && $tr.length && $tr.attr('id') && $tr.attr('id').indexOf('transaction-') === 0) {
+          // when the transactions list changes, there will be multiple mutations per row (date column, amount column, etc.)
+          rowIdsToUpdate[$tr.attr('id')] = true;
+        }
+      });
+
+      observer.disconnect();
+      for(var rowId in rowIdsToUpdate) {
+        updateRow(rowId);
+      }
+      observe();
+    }
+
+    function observe() {
+      observer = new MutationObserver(handleMutations);
+      observer.observe(
+        target,
+        {subtree: true, childList: true, characterData: true}
+      );
+    }
+
+    observe();
+  }
+
+  (function waitForTable() {
     var target = document.querySelector('#transaction-list-body');
     if(target === null) {
-      setTimeout(observeDOM, 500);
+      setTimeout(waitForTable, 500);
       return;
     }
 
-    new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
-        // Mutation events seem to be triggered only for the text in the merchant column of a transaction row.
-        var row = jQuery(mutation.target).parents('tr').first();
-        updateRow(row);
-      });
-    }).observe(
-      target,
-      {subtree: true, characterData: true}
-    );
+    // populate the table with tags after it first loads
+    jQuery(target).find('tr').each(function(_, row) {
+      updateRow(row.id);
+    });
+
+    observeDOM(target);
   })();
 
 })();
