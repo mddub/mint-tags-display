@@ -4,7 +4,7 @@
 // @description Show tags in the transactions listing on Mint.com.
 // @namespace   com.warkmilson.mint.js
 // @author      Mark Wilson
-// @version     1.0.0
+// @version     1.0.1
 // @homepage    https://github.com/mddub/mint-tags-display
 // @updateURL   https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
 // @downloadURL https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
@@ -88,11 +88,14 @@
 
   (function(open) {
     XMLHttpRequest.prototype.open = function() {
+      // Firefox and Chrome support this.responseURL, but Safari does not, so we need to store it
+      var requestURL_ = arguments[1];
+
       // instrument all XHR responses to intercept the ones which may contain transaction listing or tag listing
       this.addEventListener("readystatechange", function() {
-        if(this.readyState === 4 && this.responseURL.match('getJsonData.xevent')) {
+        if(this.readyState === 4 && requestURL_.match('getJsonData.xevent')) {
           maybeIngestTransactionsList(this.responseText);
-        } else if(this.readyState === 4 && this.responseURL.match('bundledServiceController.xevent')) {
+        } else if(this.readyState === 4 && requestURL_.match('bundledServiceController.xevent')) {
           maybeIngestTagsList(this.responseText);
         }
       }, false);
