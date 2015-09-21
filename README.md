@@ -12,9 +12,9 @@ Next, [click here][download-url] and you will be prompted to install *Mint.com t
 
 ## More information
 
-[This blog post][blog-post] discusses the motivation behind this user script, how it works, and some opinions on Mint.
+[This blog post][blog-post] discusses the motivation behind this user script and how it works.
 
-Questions? mark@warkmilson.com
+Questions? Issues? Improvements? File an issue or submit a pull request!
 
 [GreaseMonkey]: https://addons.mozilla.org/en-us/firefox/addon/greasemonkey/
 [TamperMonkey]: http://tampermonkey.net/
