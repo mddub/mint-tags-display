@@ -89,7 +89,7 @@
       jQuery.each( tags, function( index, value ){
         // if tag exists, pull color from tagColorIndex array
         // if not, assign tag to tagColorIndex array, assign next color in order
-        if (!(value in tagColorIndex)) {
+        if (!(value in tagColorLookup)) {
             tagColorLookup[value] = tagColors[ Object.keys(tagColorLookup).length ];
         }
       });
