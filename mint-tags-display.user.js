@@ -15,8 +15,11 @@
 
 (function() {
   // tweak tag style: (default colors were chosen for consistency with Mint's theme)
-  var TAG_STYLE = 'background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px';
-
+  var TAG_STYLE = 'color: white; font-size: 10px; display: inline-block;';
+  var SINGLE_TAG_STYLE = ' margin-left: 4px; padding: 0 2px';
+  var tagColors = ['background: #0AC775;', 'background: #6b3b2b;','background: #6b552b;', 'background: #212b47;', 'background: #1E4A35;'];
+  var tagColorLookup = [];
+    
   var transIdToTags = {};
   var tagIdToName = {};
 
@@ -72,6 +75,7 @@
     });
   }
 
+    
   // update a transaction row using cached tag data
   function updateRow(rowId) {
     var $td = jQuery('#' + rowId).find('td.cat');
@@ -80,7 +84,21 @@
       if($td.find('.gm-tags').length === 0) {
         $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
-      $td.find('.gm-tags').text(transIdToTags[transId]);
+      tags = transIdToTags[transId].split(',');
+      jQuery.each( tags, function( index, value ){
+        // if tag exists, pull color from tagColorIndex array
+        // if not, assign tag to tagColorIndex array, assign next color in order
+        if (!(value in tagColorIndex)) {
+            tagColorLookup[value] = tagColors[ Object.keys(tagColorLookup).length ];
+        }
+      });
+      tagsHTML = [];
+      jQuery.each( tags, function( index, value ){
+        tagsHTML.push('<span class="gm-tag" style="' + tagColorLookup[value] + SINGLE_TAG_STYLE + '">' + value + '</span>');
+      });
+      
+      $td.find('.gm-tags').html(tagsHTML);
+            
     } else {
       $td.find('.gm-tags').remove();
     }
