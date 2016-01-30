@@ -15,30 +15,12 @@
 //
 
 (function() {
-  // tweak tag style: (default colors were chosen for consistency with Mint's theme)
   var TAG_STYLE = 'color: white; font-size: 10px; display: inline-block;';
-  var SINGLE_TAG_STYLE = ' margin-left: 4px; padding: 0 2px';
-  var tagColors = [ 'tan',
-                    'silver',
-                    'gray',
-                    'charcoal',
-                    'royal blue',
-                    'teal',
-                    'forest green',
-                    'olive',
-                    'lime',
-                    'golden',
-                    'goldenrod',
-                    'coral',
-                    'fuchsia',
-                    'puce',
-                    'plum',
-                    'maroon',
-                    'crimson' ];
-    
-  var tagColorLookup = []; // key is tag name, value is from tagColor array
-  var availableTags = [] // pulled from sidebar -- all possible tags user has
-  
+  var SINGLE_TAG_STYLE = 'margin-left: 4px; padding: 0 2px;';
+  var TAG_COLORS = ['tan', 'silver', 'gray', 'dimgray', 'royalblue', 'teal', 'forestgreen', 'olive', 'lime', 'golden', 'goldenrod', 'coral', 'fuchsia', 'puce', 'plum', 'maroon', 'crimson'];
+
+  var tagsByFrequency;
+
   var transIdToTags = {};
   var tagIdToName = {};
 
@@ -47,7 +29,7 @@
     json['set'].forEach(function(item) {
       if(item['id'] === 'transactions') {
         item['data'].forEach(function(trans) {
-          transIdToTags[trans['id']] = trans['labels'].map(function(label) { return label['name']; }).join(', ');
+          transIdToTags[trans['id']] = trans['labels'].map(function(label) { return label['name']; });
           trans['labels'].forEach(function(label) {
             tagIdToName[label['id']] = label['name'];
           });
@@ -63,6 +45,12 @@
         if(val['responseType'] === 'MintTransactionService_getTagsByFrequency') {
           val['response'].forEach(function(tagData) {
             tagIdToName[tagData['id']] = tagData['name'];
+          });
+
+          tagsByFrequency = val['response'].sort(function(a, b) {
+            return b['transactionCount'] - a['transactionCount'];
+          }).map(function(tagData) {
+            return tagData['name'];
           });
         }
       });
@@ -87,32 +75,29 @@
     });
 
     transIds.forEach(function(tId) {
-      transIdToTags[tId] = tagNames.join(', ') || undefined;
+      transIdToTags[tId] = tagNames;
       if(jQuery('#transaction-' + tId).length > 0) {
         updateRow('transaction-' + tId);
       }
     });
   }
 
-    
   // update a transaction row using cached tag data
   function updateRow(rowId) {
     var $td = jQuery('#' + rowId).find('td.cat');
     var transId = rowId.split('-')[1];
-    if(transIdToTags[transId]) {
+    if(transIdToTags[transId] && transIdToTags[transId].length) {
       if($td.find('.gm-tags').length === 0) {
         $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
-      tags = transIdToTags[transId].split(',');
 
       // HTML for each tag, unique color for each tag
-      tagsHTML = [];
-      jQuery.each( tags, function( index, value ){
-        tagsHTML.push('<span class="gm-tag" style="background-color:' + tagColorLookup[value] + '; ' + SINGLE_TAG_STYLE + '">' + value + '</span>');
-      });
-      
+      var tagsHTML = transIdToTags[transId].map(function(tag) {
+        return '<span class="gm-tag" style="background-color: ' + tagColorLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
+      }).join('');
+
       $td.find('.gm-tags').html(tagsHTML);
-            
+
     } else {
       $td.find('.gm-tags').remove();
     }
@@ -184,13 +169,6 @@
       return;
     }
 
-    // read in tags list from sidebar
-    jQuery( '#localnav-tags ol li' ).each(function(){
-        availableTags.push( jQuery(this).prop('title') );
-    });
-    
-    assignTagColors(availableTags);
-
     // populate the table with tags after it first loads
     jQuery(target).find('tr').each(function(_, row) {
       updateRow(row.id);
@@ -199,19 +177,9 @@
     observeDOM(target);
   })();
 
-  function assignTagColors(tags) {
-  	// populate array `tagColorLookup`
-  	// provide color from array `tagColors`
-  	// for each tag in array `tags`  	
-    colorIndex = 0;
-  	for (key in tags) {
-        tagColorLookup[tags[key]] = tagColors[colorIndex];
-        colorIndex++;
-        
-        if (colorIndex > ( tagColors.length - 1 ) ) {
-            colorIndex = 0;
-        }
-	}
+  function tagColorLookup(tag) {
+    var index = tagsByFrequency.indexOf(tag);
+    return TAG_COLORS[index % TAG_COLORS.length];
   }
-    
+
 })();
