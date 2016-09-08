@@ -19,5 +19,5 @@ Questions? Issues? Improvements? File an issue or submit a pull request!
 [GreaseMonkey]: https://addons.mozilla.org/en-us/firefox/addon/greasemonkey/
 [TamperMonkey]: http://tampermonkey.net/
 [more-detailed-instructions]: http://stackapps.com/tags/script/info
-[download-url]: https://raw.githubusercontent.com/mddub/mint-tags-display/master/mint-tags-display.user.js
+[download-url]: https://greasyfork.org/scripts/12523-mint-com-tags-display/code/Mintcom%20tags%20display.user.js
 [blog-post]: http://warkmilson.com/2015/09/18/displaying-tags-on-mint-transactions.html
