@@ -16,8 +16,29 @@
 
 (function() {
   // tweak tag style: (default colors were chosen for consistency with Mint's theme)
-  var TAG_STYLE = 'background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px';
-
+  var TAG_STYLE = 'color: white; font-size: 10px; display: inline-block;';
+  var SINGLE_TAG_STYLE = ' margin-left: 4px; padding: 0 2px';
+  var tagColors = [ 'tan',
+                    'silver',
+                    'gray',
+                    'charcoal',
+                    'royal blue',
+                    'teal',
+                    'forest green',
+                    'olive',
+                    'lime',
+                    'golden',
+                    'goldenrod',
+                    'coral',
+                    'fuchsia',
+                    'puce',
+                    'plum',
+                    'maroon',
+                    'crimson' ];
+    
+  var tagColorLookup = []; // key is tag name, value is from tagColor array
+  var availableTags = [] // pulled from sidebar -- all possible tags user has
+  
   var transIdToTags = {};
   var tagIdToName = {};
 
@@ -73,6 +94,7 @@
     });
   }
 
+    
   // update a transaction row using cached tag data
   function updateRow(rowId) {
     var $td = jQuery('#' + rowId).find('td.cat');
@@ -81,7 +103,16 @@
       if($td.find('.gm-tags').length === 0) {
         $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
-      $td.find('.gm-tags').text(transIdToTags[transId]);
+      tags = transIdToTags[transId].split(',');
+
+      // HTML for each tag, unique color for each tag
+      tagsHTML = [];
+      jQuery.each( tags, function( index, value ){
+        tagsHTML.push('<span class="gm-tag" style="background-color:' + tagColorLookup[value] + '; ' + SINGLE_TAG_STYLE + '">' + value + '</span>');
+      });
+      
+      $td.find('.gm-tags').html(tagsHTML);
+            
     } else {
       $td.find('.gm-tags').remove();
     }
@@ -153,6 +184,13 @@
       return;
     }
 
+    // read in tags list from sidebar
+    jQuery( '#localnav-tags ol li' ).each(function(){
+        availableTags.push( jQuery(this).prop('title') );
+    });
+    
+    assignTagColors(availableTags);
+
     // populate the table with tags after it first loads
     jQuery(target).find('tr').each(function(_, row) {
       updateRow(row.id);
@@ -161,4 +199,19 @@
     observeDOM(target);
   })();
 
+  function assignTagColors(tags) {
+  	// populate array `tagColorLookup`
+  	// provide color from array `tagColors`
+  	// for each tag in array `tags`  	
+    colorIndex = 0;
+  	for (key in tags) {
+        tagColorLookup[tags[key]] = tagColors[colorIndex];
+        colorIndex++;
+        
+        if (colorIndex > ( tagColors.length - 1 ) ) {
+            colorIndex = 0;
+        }
+	}
+  }
+    
 })();
