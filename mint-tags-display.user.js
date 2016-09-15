@@ -5,7 +5,7 @@
 // @description Show tags in the transactions listing on Mint.com.
 // @namespace   com.warkmilson.mint.js
 // @author      Mark Wilson
-// @version     1.1.0
+// @version     1.2.0
 // @homepage    https://github.com/mddub/mint-tags-display
 // @updateURL   https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
 // @downloadURL https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
