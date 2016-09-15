@@ -5,7 +5,7 @@
 // @description Show tags in the transactions listing on Mint.com.
 // @namespace   com.warkmilson.mint.js
 // @author      Mark Wilson
-// @version     1.1.0
+// @version     1.2.0
 // @homepage    https://github.com/mddub/mint-tags-display
 // @updateURL   https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
 // @downloadURL https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
@@ -15,8 +15,26 @@
 //
 
 (function() {
-  // tweak tag style: (default colors were chosen for consistency with Mint's theme)
-  var TAG_STYLE = 'background: #0AC775; color: white; font-size: 10px; display: inline-block; margin-left: 4px; padding: 0 2px';
+  var TAG_STYLE = 'font-size: 10px; display: inline-block;';
+  var SINGLE_TAG_STYLE = 'margin-left: 4px; padding: 0 2px;';
+  var TAG_COLORS = [
+    // source: http://colorbrewer2.org/#type=qualitative&scheme=Paired&n=12
+    // background, foreground
+    ['#a6cee3', 'black'],
+    ['#b2df8a', 'black'],
+    ['#fb9a99', 'black'],
+    ['#fdbf6f', 'black'],
+    ['#cab2d6', 'black'],
+    ['#ffff99', 'black'],
+    ['#1f78b4', 'white'],
+    ['#33a02c', 'white'],
+    ['#e31a1c', 'white'],
+    ['#ff7f00', 'white'],
+    ['#6a3d9a', 'white'],
+    ['#b15928', 'white']
+  ];
+
+  var tagsByFrequency;
 
   var transIdToTags = {};
   var tagIdToName = {};
@@ -26,7 +44,7 @@
     json['set'].forEach(function(item) {
       if(item['id'] === 'transactions') {
         item['data'].forEach(function(trans) {
-          transIdToTags[trans['id']] = trans['labels'].map(function(label) { return label['name']; }).join(', ');
+          transIdToTags[trans['id']] = trans['labels'].map(function(label) { return label['name']; });
           trans['labels'].forEach(function(label) {
             tagIdToName[label['id']] = label['name'];
           });
@@ -42,6 +60,12 @@
         if(val['responseType'] === 'MintTransactionService_getTagsByFrequency') {
           val['response'].forEach(function(tagData) {
             tagIdToName[tagData['id']] = tagData['name'];
+          });
+
+          tagsByFrequency = val['response'].sort(function(a, b) {
+            return b['transactionCount'] - a['transactionCount'];
+          }).map(function(tagData) {
+            return tagData['name'];
           });
         }
       });
@@ -66,7 +90,7 @@
     });
 
     transIds.forEach(function(tId) {
-      transIdToTags[tId] = tagNames.join(', ') || undefined;
+      transIdToTags[tId] = tagNames;
       if(jQuery('#transaction-' + tId).length > 0) {
         updateRow('transaction-' + tId);
       }
@@ -77,11 +101,25 @@
   function updateRow(rowId) {
     var $td = jQuery('#' + rowId).find('td.cat');
     var transId = rowId.split('-')[1];
-    if(transIdToTags[transId]) {
+    if(transIdToTags[transId] && transIdToTags[transId].length) {
       if($td.find('.gm-tags').length === 0) {
         $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
-      $td.find('.gm-tags').text(transIdToTags[transId]);
+
+      // Alphabetize
+      transIdToTags[transId].sort(function(a, b) {
+        if(a.toLowerCase() < b.toLowerCase()) { return -1; }
+        else if(a.toLowerCase() > b.toLowerCase()) { return 1; }
+        else { return 0; }
+      });
+
+      // HTML for each tag, unique color for each tag
+      var tagsHTML = transIdToTags[transId].map(function(tag) {
+        return '<span class="gm-tag" style="' + tagStyleLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
+      }).join('');
+
+      $td.find('.gm-tags').html(tagsHTML);
+
     } else {
       $td.find('.gm-tags').remove();
     }
@@ -160,5 +198,11 @@
 
     observeDOM(target);
   })();
+
+  function tagStyleLookup(tag) {
+    var index = tagsByFrequency.indexOf(tag);
+    var colors = TAG_COLORS[index % TAG_COLORS.length];
+    return 'background-color: ' + colors[0] + '; color: ' + colors[1] + ';';
+  }
 
 })();
