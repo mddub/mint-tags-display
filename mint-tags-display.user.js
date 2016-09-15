@@ -106,6 +106,13 @@
         $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
       }
 
+      // Alphabetize
+      transIdToTags[transId].sort(function(a, b) {
+        if(a.toLowerCase() < b.toLowerCase()) { return -1; }
+        else if(a.toLowerCase() > b.toLowerCase()) { return 1; }
+        else { return 0; }
+      });
+
       // HTML for each tag, unique color for each tag
       var tagsHTML = transIdToTags[transId].map(function(tag) {
         return '<span class="gm-tag" style="' + tagStyleLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
