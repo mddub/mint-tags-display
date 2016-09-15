@@ -15,9 +15,24 @@
 //
 
 (function() {
-  var TAG_STYLE = 'color: white; font-size: 10px; display: inline-block;';
+  var TAG_STYLE = 'font-size: 10px; display: inline-block;';
   var SINGLE_TAG_STYLE = 'margin-left: 4px; padding: 0 2px;';
-  var TAG_COLORS = ['tan', 'silver', 'gray', 'dimgray', 'royalblue', 'teal', 'forestgreen', 'olive', 'lime', 'golden', 'goldenrod', 'coral', 'fuchsia', 'puce', 'plum', 'maroon', 'crimson'];
+  var TAG_COLORS = [
+    // source: http://colorbrewer2.org/#type=qualitative&scheme=Paired&n=12
+    // background, foreground
+    ['#a6cee3', 'black'],
+    ['#b2df8a', 'black'],
+    ['#fb9a99', 'black'],
+    ['#fdbf6f', 'black'],
+    ['#cab2d6', 'black'],
+    ['#ffff99', 'black'],
+    ['#1f78b4', 'white'],
+    ['#33a02c', 'white'],
+    ['#e31a1c', 'white'],
+    ['#ff7f00', 'white'],
+    ['#6a3d9a', 'white'],
+    ['#b15928', 'white']
+  ];
 
   var tagsByFrequency;
 
@@ -93,7 +108,7 @@
 
       // HTML for each tag, unique color for each tag
       var tagsHTML = transIdToTags[transId].map(function(tag) {
-        return '<span class="gm-tag" style="background-color: ' + tagColorLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
+        return '<span class="gm-tag" style="' + tagStyleLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
       }).join('');
 
       $td.find('.gm-tags').html(tagsHTML);
@@ -177,9 +192,10 @@
     observeDOM(target);
   })();
 
-  function tagColorLookup(tag) {
+  function tagStyleLookup(tag) {
     var index = tagsByFrequency.indexOf(tag);
-    return TAG_COLORS[index % TAG_COLORS.length];
+    var colors = TAG_COLORS[index % TAG_COLORS.length];
+    return 'background-color: ' + colors[0] + '; color: ' + colors[1] + ';';
   }
 
 })();
