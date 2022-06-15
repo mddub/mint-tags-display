@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name        Mint.com tags display
-// @include     https://*.mint.com/*
-// @include     https://mint.intuit.com/*
+// @match       https://mint.intuit.com/transactions
 // @description Show tags in the transactions listing on Mint.com.
 // @namespace   com.warkmilson.mint.js
-// @author      Mark Wilson
-// @version     1.2.0
+// @author      Mark Wilson (update by Shaun Williams)
+// @version     2.0.0
 // @homepage    https://github.com/mddub/mint-tags-display
 // @updateURL   https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
 // @downloadURL https://github.com/mddub/mint-tags-display/raw/master/mint-tags-display.user.js
@@ -15,194 +14,165 @@
 //
 
 (function() {
-  var TAG_STYLE = 'font-size: 10px; display: inline-block;';
-  var SINGLE_TAG_STYLE = 'margin-left: 4px; padding: 0 2px;';
+
+  //------------------------------------------------------------------------------
+  // Logging
+  //------------------------------------------------------------------------------
+
+  const logging = false
+  function log(...args) {
+    if (logging) console.info('MINT_TAGS', ...args)
+  }
+
+  //------------------------------------------------------------------------------
+  // Track state by watching XHR
+  //------------------------------------------------------------------------------
+
+  // State
+
+  const state = {
+    txnTags: {}, // txn id -> [tag name]
+    tagOrder: [], // [tag name]
+    tagName: {}, // tag id -> tag name
+  }
+  window._MINT_TAGS = state
+
+  // Update state
+
+  const apiUrl = path => `https://mint.intuit.com/pfm/v1${path}`
+
+  const apiHooks = {
+    // when transactions are fetched, save tags belonging to each transaction
+    [apiUrl('/transactions/search')]: data => {
+      for (const {id,tagData} of data.Transaction) {
+        state.txnTags[id] = tagData?.tags.map(tag => tag.name)
+      }
+    },
+    // when the master tag list is fetched, save it
+    [apiUrl('/tags')]: data => {
+      state.tagOrder = data.Tag.map(tag => tag.name)
+      state.tagName = Object.fromEntries(data.Tag.map(tag => [tag.id, tag.name]))
+    },
+  }
+
+  // when transactions are edited, update our tag records
+  function handleTxnEdits(edits) {
+    const idsToUpdate = []
+    for (const {id,tagData} of edits) {
+      if (tagData) {
+        state.txnTags[id] = tagData.tags.map(tag => state.tagName[tag.id])
+        idsToUpdate.push(id)
+      }
+    }
+    setTimeout(() => idsToUpdate.forEach(updateRowTags), 500)
+  }
+
+  // hook XHR to intercept api calls
+  function watchXHR() {
+    const origOpen = XMLHttpRequest.prototype.open
+
+    XMLHttpRequest.prototype.open = function(method, url) {
+      const self = this
+
+      // save XHR responses when needed
+      self.addEventListener("readystatechange", function() {
+        const hook = apiHooks[url]
+        if (self.readyState === 4 && hook) {
+          const data = JSON.parse(self.responseText)
+          log('HOOKING', url, data)
+          hook(data)
+        }
+      }, false)
+
+      // intercept edits to transactions
+      const txnsUrl = apiUrl('/transactions')
+      if (method == 'PUT' && url.startsWith(txnsUrl)) {
+        const origSend = self.send
+        self.send = function(body) {
+          const data = JSON.parse(body)
+          const edits = url==txnsUrl ? data.Transaction : [{...data, id:url.slice(txnsUrl.length+1)}]
+          log('HOOKING EDITS', edits)
+          handleTxnEdits(edits)
+          origSend.apply(self, arguments)
+        }
+      }
+
+      origOpen.apply(self, arguments)
+    }
+  }
+
+  //------------------------------------------------------------------------------
+  // Render DOM
+  //------------------------------------------------------------------------------
+
   var TAG_COLORS = [
     // source: http://colorbrewer2.org/#type=qualitative&scheme=Paired&n=12
     // background, foreground
-    ['#a6cee3', 'black'],
-    ['#b2df8a', 'black'],
-    ['#fb9a99', 'black'],
-    ['#fdbf6f', 'black'],
-    ['#cab2d6', 'black'],
-    ['#ffff99', 'black'],
-    ['#1f78b4', 'white'],
-    ['#33a02c', 'white'],
-    ['#e31a1c', 'white'],
-    ['#ff7f00', 'white'],
-    ['#6a3d9a', 'white'],
-    ['#b15928', 'white']
+    ['#a6cee3', '#000'],
+    ['#b2df8a', '#000'],
+    ['#fb9a99', '#000'],
+    ['#fdbf6f', '#000'],
+    ['#cab2d6', '#000'],
+    ['#ffff99', '#000'],
+    ['#1f78b4', '#fff'],
+    ['#33a02c', '#fff'],
+    ['#e31a1c', '#fff'],
+    ['#ff7f00', '#fff'],
+    ['#6a3d9a', '#fff'],
+    ['#b15928', '#fff']
   ];
 
-  var tagsByFrequency;
-
-  var transIdToTags = {};
-  var tagIdToName = {};
-
-  function maybeIngestTransactionsList(response) {
-    var json = window.JSON.parse(response);
-    json['set'].forEach(function(item) {
-      if(item['id'] === 'transactions') {
-        item['data'].forEach(function(trans) {
-          transIdToTags[trans['id']] = trans['labels'].map(function(label) { return label['name']; });
-          trans['labels'].forEach(function(label) {
-            tagIdToName[label['id']] = label['name'];
-          });
-        });
-      }
-    });
+  function getTagStyle(tag) {
+    const i = state.tagOrder.indexOf(tag)
+    const [bg,fg] = TAG_COLORS[i]
+    return `background:${bg}; color:${fg}`
   }
 
-  function maybeIngestTagsList(response) {
-    var json = window.JSON.parse(response);
-    if(json['bundleResponseSent']) {
-      jQuery.each(json['response'], function(key, val) {
-        if(val['responseType'] === 'MintTransactionService_getTagsByFrequency') {
-          val['response'].forEach(function(tagData) {
-            tagIdToName[tagData['id']] = tagData['name'];
-          });
+  // re-render our custom tag annotations in this row
+  function updateRowTags(id) {
+    log('UPDATING ROW', id)
+    const td = document.querySelector(`tr[data-automation-id$=_${id}] td:nth-child(4)`)
+    if (!td) return
 
-          tagsByFrequency = val['response'].sort(function(a, b) {
-            return b['transactionCount'] - a['transactionCount'];
-          }).map(function(tagData) {
-            return tagData['name'];
-          });
-        }
-      });
-    }
-  }
-
-  function interceptTransactionEdit(data) {
-    var transIds = [];
-    var tagNames = [];
-    data.split('&').forEach(function(pair) {
-      var kv = pair.split('='), key = window.decodeURIComponent(kv[0]), val = window.decodeURIComponent(kv[1]);
-
-      var tagId = key.match(/tag(\d+)/);
-      if(tagId !== null && val === '2') {
-        tagNames.push(tagIdToName[tagId[1]]);
-      }
-
-      // value is '1234:0' for a single transaction, '1234:0,2345:0' for multiple
-      if(key === 'txnId') {
-        transIds = val.split(',').map(function(tId) { return tId.split(':')[0]; });
-      }
-    });
-
-    transIds.forEach(function(tId) {
-      transIdToTags[tId] = tagNames;
-      if(jQuery('#transaction-' + tId).length > 0) {
-        updateRow('transaction-' + tId);
-      }
-    });
-  }
-
-  // update a transaction row using cached tag data
-  function updateRow(rowId) {
-    var $td = jQuery('#' + rowId).find('td.cat');
-    var transId = rowId.split('-')[1];
-    if(transIdToTags[transId] && transIdToTags[transId].length) {
-      if($td.find('.gm-tags').length === 0) {
-        $td.append('<span class="gm-tags" style="' + TAG_STYLE + '"></span>');
-      }
-
-      // Alphabetize
-      transIdToTags[transId].sort(function(a, b) {
-        if(a.toLowerCase() < b.toLowerCase()) { return -1; }
-        else if(a.toLowerCase() > b.toLowerCase()) { return 1; }
-        else { return 0; }
-      });
-
-      // HTML for each tag, unique color for each tag
-      var tagsHTML = transIdToTags[transId].map(function(tag) {
-        return '<span class="gm-tag" style="' + tagStyleLookup(tag) + '; ' + SINGLE_TAG_STYLE + '">' + tag + '</span>';
-      }).join('');
-
-      $td.find('.gm-tags').html(tagsHTML);
-
+    const tags = state.txnTags[id]
+    const tagsDiv = () => td.querySelector('.gm-tags')
+    if (tags?.length) {
+      if (!tagsDiv()) td.innerHTML += '<div class="gm-tags" style="font-size:10px; display:inline-block"></div>'
+      tagsDiv().innerHTML = tags.map(tag => `<span class="gm-tag" style="${getTagStyle(tag)}; margin-left:4px; padding:0 2px">${tag}</span>`).join('')
     } else {
-      $td.find('.gm-tags').remove();
+      tagsDiv()?.remove()
     }
   }
 
-  (function(open) {
-    XMLHttpRequest.prototype.open = function() {
-      // Firefox and Chrome support this.responseURL, but Safari does not, so we need to store it
-      var requestURL_ = arguments[1];
+  const rowId = row => row?.dataset?.automationId?.match(/TRANSACTION_TABLE_ROW_(READ|EDIT)_(.*)/)?.[2]
 
-      // instrument all XHR responses to intercept the ones which may contain transaction listing or tag listing
-      this.addEventListener("readystatechange", function() {
-        if(this.readyState === 4 && requestURL_.match('getJsonData.xevent')) {
-          maybeIngestTransactionsList(this.responseText);
-        } else if(this.readyState === 4 && requestURL_.match('bundledServiceController.xevent')) {
-          maybeIngestTagsList(this.responseText);
-        }
-      }, false);
-
-      // instrument all XHR requests to intercept edits to transactions
-      if(arguments[0].match(/post/i) && arguments[1].match('updateTransaction.xevent')) {
-        var self = this, send = this.send;
-        this.send = function() {
-          interceptTransactionEdit(arguments[0]);
-          send.apply(self, arguments);
-        };
-      }
-
-      open.apply(this, arguments);
-    };
-  })(XMLHttpRequest.prototype.open);
-
-  function observeDOM(target) {
-    var observer;
-
-    function handleMutations(mutations) {
-      var rowIdsToUpdate = {};
-      mutations.forEach(function(mutation) {
-        var $target = jQuery(mutation.target);
-        var $tr = jQuery(mutation.target).parents('tr').first();
-        if(!$target.hasClass('gm-tags') && $tr.length && $tr.attr('id') && $tr.attr('id').indexOf('transaction-') === 0) {
-          // when the transactions list changes, there will be multiple mutations per row (date column, amount column, etc.)
-          rowIdsToUpdate[$tr.attr('id')] = true;
-        }
-      });
-
-      observer.disconnect();
-      for(var rowId in rowIdsToUpdate) {
-        updateRow(rowId);
-      }
-      observe();
+  function initRender() {
+    if (!document.querySelector('tr[data-automation-id]')) {
+      return setTimeout(initRender, 500)
     }
-
-    function observe() {
-      observer = new MutationObserver(handleMutations);
-      observer.observe(
-        target,
-        {subtree: true, childList: true, characterData: true}
-      );
+    log('FOUND TABLE')
+    for (const row of document.querySelectorAll('tr[data-automation-id]')) {
+      updateRowTags(rowId(row))
     }
-
-    observe();
+    renderWhenDomChanges()
   }
 
-  (function waitForTable() {
-    var target = document.querySelector('#transaction-list-body');
-    if(target === null) {
-      setTimeout(waitForTable, 500);
-      return;
-    }
-
-    // populate the table with tags after it first loads
-    jQuery(target).find('tr').each(function(_, row) {
-      updateRow(row.id);
-    });
-
-    observeDOM(target);
-  })();
-
-  function tagStyleLookup(tag) {
-    var index = tagsByFrequency.indexOf(tag);
-    var colors = TAG_COLORS[index % TAG_COLORS.length];
-    return 'background-color: ' + colors[0] + '; color: ' + colors[1] + ';';
+  function renderWhenDomChanges() {
+    log('WATCHING FOR CHANGES')
+    const observer = new MutationObserver(() => {
+      observer.disconnect()
+      document.querySelectorAll('tr[data-automation-id]').forEach(row => updateRowTags(rowId(row)))
+      log('RELAUNCHING WATCH')
+      renderWhenDomChanges()
+    })
+    observer.observe(document.body, {subtree: true, childList: true, characterData: true})
   }
+
+  //------------------------------------------------------------------------------
+  // Main
+  //------------------------------------------------------------------------------
+
+  watchXHR()
+  initRender()
 
 })();
