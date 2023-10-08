@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name        Mint.com tags display
 // @match       https://mint.intuit.com/transactions
+// @connect     mint.intuit.com
 // @description Show tags in the transactions listing on Mint.com.
 // @namespace   com.warkmilson.mint.js
 // @author      Mark Wilson (update by Shaun Williams)
